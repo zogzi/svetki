@@ -1,11 +1,17 @@
-import discord
-import asyncio
-import logging
-import json
 import os
+import json
+import logging
+import asyncio
 from datetime import datetime, time
-from discord.ext import commands, tasks
 from pathlib import Path
+
+import discord
+from discord.ext import commands, tasks
+from dotenv import load_dotenv
+
+# Load environment variables from .env
+load_dotenv()
+
 
 # Configure logging
 logging.basicConfig(
