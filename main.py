@@ -43,8 +43,6 @@ class HolidayBot(commands.Bot):
         
         self.check_holiday_messages.start()
         
-        
-        await self.change_presence(activity=discord.Game(name="Holiday Greeter"))
     
     def load_config(self):
         """Load configuration from config.json or create default if not exists."""
