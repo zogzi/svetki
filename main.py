@@ -32,7 +32,7 @@ class HolidayBot(commands.Bot):
     def __init__(self):
         super().__init__(command_prefix="!", intents=intents)
         
-        e
+        
         self.config = self.load_config()
             
     async def on_ready(self):
