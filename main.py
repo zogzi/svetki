@@ -39,7 +39,7 @@ class HolidayBot(commands.Bot):
         """Load configuration from config.json or create default if not exists."""
         config_path = Path("config.json")
         default_config = {
-            "channel_id": 123456789012345678,  # Replace with your actual channel ID
+            "channel_id": 1374479725392564296,  # Replace with your actual channel ID
             "message_time_utc": { # Clarified UTC
                 "hour": 9,
                 "minute": 0
