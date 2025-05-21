@@ -37,10 +37,10 @@ class HolidayBot(commands.Bot):
         self._config_path = Path("config.json")
         self._default_config = {
             "channel_id": 1374479725392564296,
-            "message_time_utc": {"hour": 9, "minute": 0},
+            "message_time_utc": {"hour": 9, "minute": 59},
             "delete_after_hours": 24,
             "holiday_messages": {
-                "1-1": "Happy New Year! 🎉",
+                "5-21": "Happy New Year! 🎉",
                 "12-25": "Merry Christmas! 🎄",
                 "2-14": "Happy Valentine's Day! ❤️",
                 "10-31": "Happy Halloween! 🎃",
