@@ -18,7 +18,7 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',  # Simplified format
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler("bot.log", encoding="utf-8", buffering=4096)  # 4KB buffer
+        logging.FileHandler("bot.log", encoding="utf-8")  # 4KB buffer
     ]
 )
 logger = logging.getLogger("discord_bot")
@@ -37,7 +37,7 @@ class HolidayBot(commands.Bot):
         self._config_path = Path("config.json")
         self._default_config = {
             "channel_id": 1374479725392564296,
-            "message_time_utc": {"hour": 10, "minute": 12},
+            "message_time_utc": {"hour": 10, "minute": 14},
             "delete_after_hours": 24,
             "holiday_messages": {
                 "5-21": "Happy New Year! 🎉",
