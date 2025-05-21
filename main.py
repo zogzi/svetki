@@ -80,6 +80,11 @@ class HolidayBot(commands.Bot):
     async def on_ready(self) -> None:
         """Event fired when the bot is ready."""
         logger.info(f"Bot connected as {self.user.name} (ID: {self.user.id})")
+
+ # Test message on startup
+    test_message = "hello (bot started)"
+    await self.send_message_to_configured_channel(test_message)
+    logger.info("Startup message sent.")
         
     def cleanup_cache_files(self, keep_date_key: str) -> None:
         """Remove cache files from previous days more efficiently."""
