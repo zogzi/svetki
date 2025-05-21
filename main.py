@@ -18,7 +18,7 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',  # Simplified format
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler("bot.log", encoding="utf-8")  # 4KB buffer
+        logging.FileHandler("bot.log", encoding="utf-8")  # No buffering arg to avoid error
     ]
 )
 logger = logging.getLogger("discord_bot")
@@ -78,14 +78,14 @@ class HolidayBot(commands.Bot):
         logger.info("Tasks started")
 
     async def on_ready(self) -> None:
-    """Event fired when the bot is ready."""
-    logger.info(f"Bot connected as {self.user.name} (ID: {self.user.id})")
+        """Event fired when the bot is ready."""
+        logger.info(f"Bot connected as {self.user.name} (ID: {self.user.id})")
 
-    # Test message on startup
-    test_message = "hello (bot started)"
-    await self.send_message_to_configured_channel(test_message)
-    logger.info("Startup message sent.")
-        
+        # Send a startup message instantly once the bot is ready
+        test_message = "hello (bot started)"
+        await self.send_message_to_configured_channel(test_message)
+        logger.info("Startup message sent.")
+
     def cleanup_cache_files(self, keep_date_key: str) -> None:
         """Remove cache files from previous days more efficiently."""
         cache_dir = Path(".")
