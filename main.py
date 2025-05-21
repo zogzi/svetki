@@ -78,10 +78,10 @@ class HolidayBot(commands.Bot):
         logger.info("Tasks started")
 
     async def on_ready(self) -> None:
-        """Event fired when the bot is ready."""
-        logger.info(f"Bot connected as {self.user.name} (ID: {self.user.id})")
+    """Event fired when the bot is ready."""
+    logger.info(f"Bot connected as {self.user.name} (ID: {self.user.id})")
 
- # Test message on startup
+    # Test message on startup
     test_message = "hello (bot started)"
     await self.send_message_to_configured_channel(test_message)
     logger.info("Startup message sent.")
