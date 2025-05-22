@@ -9,18 +9,20 @@ import discord
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
 
+# Load .env file once
 load_dotenv()
 
+# Logging setup (rotating to prevent log bloat)
+from logging.handlers import RotatingFileHandler
+handler = RotatingFileHandler("bot.log", maxBytes=5_000_000, backupCount=3, encoding='utf-8')
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.WARNING,
     format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler("bot.log", encoding="utf-8")
-    ]
+    handlers=[logging.StreamHandler(), handler]
 )
-logger = logging.getLogger("discord_bot")
+logger = logging.getLogger("holiday_bot")
 
+# Minimal Discord intents
 intents = discord.Intents.none()
 intents.guilds = True
 intents.messages = True
@@ -30,164 +32,122 @@ class HolidayBot(commands.Bot):
     def __init__(self):
         super().__init__(command_prefix="!", intents=intents)
         self.config = {}
-        self.holiday_keys = set()
         self.last_holiday_messages = {}
         self._config_path = Path("config.json")
         self._default_config = {
             "channel_id": 1374479725392564296,
-            "message_time_utc": {"hour": 10, "minute": 14},
+            "message_time_utc": {"hour": 22, "minute": 0},  # 01:00 Latvia Time (summer)
             "delete_after_hours": 24,
             "holiday_messages": {
-                "5-21": "Happy New Year! 🎉",
-                "12-25": "Merry Christmas! 🎄",
+                "5-22": "Test Holiday! 🎉",
                 "2-14": "Happy Valentine's Day! ❤️",
-                "10-31": "Happy Halloween! 🎃",
+                "12-25": "Merry Christmas! 🎄"
             }
         }
 
     def load_config(self) -> Dict[str, Any]:
         if self._config_path.exists():
             try:
-                with open(self._config_path, "r", encoding="utf-8") as f:
+                with open(self._config_path, 'r', encoding='utf-8') as f:
                     return json.load(f)
             except Exception as e:
-                logger.error(f"Error loading config: {e}")
+                logger.error(f"Failed loading config: {e}")
                 return self._default_config
 
         try:
-            with open(self._config_path, "w", encoding="utf-8") as f:
+            with open(self._config_path, 'w', encoding='utf-8') as f:
                 json.dump(self._default_config, f, indent=2)
-            return self._default_config
-        except Exception:
-            logger.error("Could not write default config.json")
-            return self._default_config
+        except Exception as e:
+            logger.error(f"Failed to write config: {e}")
+
+        return self._default_config
 
     async def setup_hook(self) -> None:
         self.config = self.load_config()
-        self.holiday_keys = set(self.config.get("holiday_messages", {}).keys())
-
-        self.daily_check.start()
-        self.auto_delete_messages.change_interval(hours=3)
+        self.check_holiday_messages.start()
+        self.auto_delete_messages.change_interval(hours=5)  # Reduced frequency
         self.auto_delete_messages.start()
-        logger.info("Tasks started")
 
     async def on_ready(self) -> None:
-        logger.info(f"Bot connected as {self.user.name} (ID: {self.user.id})")
+        logger.info(f"Bot connected as {self.user} (ID: {self.user.id})")
 
-    def cleanup_cache_files(self, keep_date_key: str) -> None:
-        cache_dir = Path(".")
-        prefix = "sent_"
-        suffix = ".tmp"
-        keep_file = f"{prefix}{keep_date_key}{suffix}"
-
-        for file in cache_dir.glob(f"{prefix}*{suffix}"):
-            if file.name != keep_file:
-                try:
-                    file.unlink(missing_ok=True)
-                except OSError:
-                    pass
-
-    @tasks.loop(hours=24)
-    async def daily_check(self) -> None:
+    @tasks.loop(minutes=10)
+    async def check_holiday_messages(self):
         await self.wait_until_ready()
 
         now = datetime.now(timezone.utc)
         date_key = f"{now.month}-{now.day}"
 
-        # Cleanup cache once daily
-        if now.hour == 0:
-            self.cleanup_cache_files(date_key)
+        msg_time = self.config.get("message_time_utc", {})
+        if now.hour == msg_time.get("hour", 0) and now.minute < msg_time.get("minute", 0) + 5:
+            if date_key not in self.config.get("holiday_messages", {}):
+                return
 
-        if date_key not in self.holiday_keys:
-            return  # Skip non-holiday days
+            if date_key not in self.last_holiday_messages:
+                content = self.config["holiday_messages"][date_key]
+                message = await self.send_message_to_configured_channel(content)
 
-        msg_config = self.config.get("message_time_utc", {})
-        target_hour = msg_config.get("hour", 0)
-        target_minute = msg_config.get("minute", 0)
-        target_time = now.replace(hour=target_hour, minute=target_minute, second=0, microsecond=0)
+                if message:
+                    self.last_holiday_messages[date_key] = {
+                        "id": message.id,
+                        "timestamp": now.timestamp()
+                    }
+                    logger.info(f"Sent holiday message for {date_key}")
 
-        if now < target_time:
-            return  # Too early, wait until target time
-
-        cache_file = Path(f"sent_{date_key}.tmp")
-        if cache_file.exists():
-            return  # Already sent today
-
-        message = await self.send_message_to_configured_channel(
-            self.config["holiday_messages"][date_key]
-        )
-
-        if message:
-            self.last_holiday_messages[date_key] = {
-                "id": message.id,
-                "timestamp": now.timestamp()
-            }
-            try:
-                cache_file.touch()
-            except OSError:
-                logger.error(f"Failed to create cache file: {cache_file.name}")
-
-    @tasks.loop(hours=3)
-    async def auto_delete_messages(self) -> None:
+    @tasks.loop(hours=5)
+    async def auto_delete_messages(self):
         await self.wait_until_ready()
 
         if not self.last_holiday_messages:
             return
 
-        delete_after_hours = self.config.get("delete_after_hours", 24)
-        threshold = datetime.now(timezone.utc) - timedelta(hours=delete_after_hours)
-        threshold_ts = threshold.timestamp()
-
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=self.config.get("delete_after_hours", 24))
         channel_id = self.config.get("channel_id")
         channel = self.get_channel(channel_id)
+
         if not channel or not isinstance(channel, discord.TextChannel):
             return
 
-        keys_to_remove = []
-        for date_key, msg_data in self.last_holiday_messages.items():
-            if msg_data["timestamp"] < threshold_ts:
+        to_delete = []
+        for date_key, msg in self.last_holiday_messages.items():
+            if msg["timestamp"] < cutoff.timestamp():
                 try:
-                    message = await channel.fetch_message(msg_data["id"])
+                    message = await channel.fetch_message(msg["id"])
                     await message.delete()
-                    keys_to_remove.append(date_key)
-                except (discord.errors.NotFound, discord.errors.Forbidden):
-                    keys_to_remove.append(date_key)
-                except Exception as e:
-                    logger.error(f"Error deleting message: {e}")
+                    to_delete.append(date_key)
+                except (discord.NotFound, discord.Forbidden):
+                    to_delete.append(date_key)
 
-        for key in keys_to_remove:
+        for key in to_delete:
             self.last_holiday_messages.pop(key, None)
 
     async def send_message_to_configured_channel(self, content: str) -> Optional[discord.Message]:
         channel_id = self.config.get("channel_id")
         channel = self.get_channel(channel_id)
         if not channel or not isinstance(channel, discord.TextChannel):
-            logger.error(f"Invalid channel: {channel_id}")
+            logger.error("Invalid channel")
             return None
-
         try:
             return await channel.send(content)
-        except discord.errors.Forbidden:
-            logger.error("No permission to send messages")
+        except discord.Forbidden:
+            logger.error("Missing permissions to send message")
         except Exception as e:
-            logger.error(f"Error sending message: {e}")
-
+            logger.error(f"Failed to send message: {e}")
         return None
 
-def main() -> None:
+def main():
     token = os.getenv("DISCORD_BOT_TOKEN")
     if not token:
-        logger.critical("No token found. Set DISCORD_BOT_TOKEN env variable.")
+        logger.critical("DISCORD_BOT_TOKEN is missing")
         return
 
     bot = HolidayBot()
     try:
-        logger.info("Starting bot...")
         bot.run(token, log_handler=None)
-    except discord.errors.LoginFailure:
-        logger.critical("Invalid token. Check DISCORD_BOT_TOKEN env variable.")
+    except discord.LoginFailure:
+        logger.critical("Invalid token")
     except Exception as e:
-        logger.critical(f"Error starting bot: {e}")
+        logger.critical(f"Bot error: {e}")
 
 if __name__ == "__main__":
     main()
