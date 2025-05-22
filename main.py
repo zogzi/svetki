@@ -96,7 +96,7 @@ class HolidayBot(commands.Bot):
                 except OSError:
                     pass
 
-    @tasks.loop(hours=1)
+    @tasks.loop(minutes=1)
     async def check_holiday_messages(self) -> None:
         """Check for holiday messages once per hour."""
         await self.wait_until_ready()
