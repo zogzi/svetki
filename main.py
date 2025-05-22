@@ -110,7 +110,7 @@ class HolidayBot(commands.Bot):
             "message_time_utc": {"hour": 22, "minute": 0},
             "delete_after_hours": 24,
             "holiday_messages": {
-                "5-22": "Test Holiday! 🎉",
+                "1-1": "Test Holiday! 🎉",
                 "2-14": "Happy Valentine's Day! ❤️",
                 "12-25": "Merry Christmas! 🎄"
             }
