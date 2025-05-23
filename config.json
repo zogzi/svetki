@@ -7,10 +7,13 @@
     },
     "holiday_messages": {
         "1-1": "Happy New Year! 🎉",
-        "2-14": "Happy Valentine's Day! ❤️",
-        "10-31": "Happy Halloween! 🎃",  
-        "12-24": "Christmas Eve! 🎄",
-        "12-25": "Merry Christmas! 🎄",
-        "12-31": "New Year's Eve! 🎊"
+        "4-4": "Happy Restoration of Independence Day! 🎆",
+        "6-23": "Happy Midsummer's Eve! 🌿🔥",
+        "6-24": "Happy Midsummer's Day! 🌞🌼",
+        "11-18": "Happy Proclamation Day! 🎊",
+        "12-24": "Merry Christmas Eve! 🎄✨",
+        "12-25": "Merry Christmas! 🎁❄️",
+        "12-26": "Happy Second Day of Christmas! 🎉",
+        "12-31": "Happy New Year's Eve! 🥂🎇"
     }
 }
