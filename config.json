@@ -6,13 +6,12 @@
         "minute": 0
     },
     "holiday_messages": {
-        "1-1": "Happy New Year! 🎉",
-        "4-4": "Happy Restoration of Independence Day! 🎆",
-        "6-23": "Happy Midsummer's Eve! 🌿🔥",
-        "6-24": "Happy Midsummer's Day! 🌞🌼",
-        "11-18": "Happy Proclamation Day! 🎊",
-        "12-24": "Merry Christmas Eve! 🎄✨",
-        "12-25": "Merry Christmas! 🎁❄️",
-        "12-31": "Happy New Year's Eve! 🥂🎇"
+  "1-1": "Laimīgu Jauno gadu! 🎉",
+  "6-23": "Priecīgu Jāņu vakaru! 🌿🔥",
+  "6-24": "Priecīgus Jāņus! 🌞🌼",
+  "11-18": "Priecīgu Latvijas Republikas proklamēšanas dienu! 🇱🇻🎊",
+  "12-24": "Priecīgu Ziemassvētku vakaru! 🎄✨",
+  "12-25": "Priecīgus Ziemassvētkus! 🎁❄️",
+  "12-31": "Laimīgu Vecgada vakaru! 🥂🎇"
     }
 }
