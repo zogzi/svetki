@@ -1,4 +1,3 @@
-
 {
     "channel_id": 1374479725392564296,
     "message_time_utc": {
@@ -6,12 +5,13 @@
         "minute": 0
     },
     "holiday_messages": {
-  "1-1": "Laimīgu Jauno gadu! 🎉",
-  "6-23": "Priecīgu Jāņu vakaru! 🌿🔥",
-  "6-24": "Priecīgus Jāņus! 🌞🌼",
-  "11-18": "Priecīgu Latvijas Republikas proklamēšanas dienu! 🇱🇻🎊",
-  "12-24": "Priecīgu Ziemassvētku vakaru! 🎄✨",
-  "12-25": "Priecīgus Ziemassvētkus! 🎁❄️",
-  "12-31": "Laimīgu Vecgada vakaru! 🥂🎇"
+        "1-1": "Laimīgu Jauno gadu! 🎉",
+        "5-4": "Priecīgu Neatkarības atjaunošanas dienu! 🇱🇻✨",
+        "6-23": "Priecīgu Jāņu vakaru! 🌿🔥",
+        "6-24": "Priecīgus Jāņus! 🌞🌼",
+        "11-18": "Priecīgu Latvijas Republikas proklamēšanas dienu! 🇱🇻🎊",
+        "12-24": "Priecīgu Ziemassvētku vakaru! 🎄✨",
+        "12-25": "Priecīgus Ziemassvētkus! 🎁❄️",
+        "12-31": "Laimīgu Vecgada vakaru! 🥂🎇"
     }
 }
