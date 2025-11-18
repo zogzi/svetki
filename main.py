@@ -15,19 +15,19 @@ from dotenv import load_dotenv
 # Load environment once
 load_dotenv()
 
-# Ultra-minimal logging setup
+# Improved logging setup
 def setup_minimal_logging():
-    """Minimal logging to reduce I/O overhead"""
+    """Logging that captures connection issues"""
     logger = logging.getLogger("holiday_bot")
     if logger.handlers:
         return logger
     
-    logger.setLevel(logging.ERROR)  # Only log errors to reduce I/O
+    # Changed to WARNING to catch connection issues
+    logger.setLevel(logging.WARNING)
     
-    # Console only for critical errors
     console = logging.StreamHandler()
-    console.setLevel(logging.ERROR)
-    console.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
+    console.setLevel(logging.WARNING)
+    console.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s: %(message)s'))
     logger.addHandler(console)
     logger.propagate = False
     
@@ -83,7 +83,8 @@ class HolidayBot(commands.Bot):
     __slots__ = (
         '_config', '_config_mtime', '_config_path', '_default_config',
         '_message_cache', '_channel_cache', '_last_config_check',
-        '_holiday_keys_cache', '_sent_today_cache'
+        '_holiday_keys_cache', '_sent_today_cache', '_last_check_date',
+        '_connection_errors'
     )
     
     def __init__(self):
@@ -91,9 +92,9 @@ class HolidayBot(commands.Bot):
             command_prefix="!",
             intents=intents,
             chunk_guilds_at_startup=False,
-            max_messages=10,  # Minimal message cache
-            help_command=None,  # Disable help command to save memory
-            case_insensitive=False  # Disable case insensitive matching
+            max_messages=10,
+            help_command=None,
+            case_insensitive=False
         )
         
         self._config = None
@@ -104,6 +105,8 @@ class HolidayBot(commands.Bot):
         self._last_config_check = 0
         self._holiday_keys_cache = None
         self._sent_today_cache = set()
+        self._last_check_date = None
+        self._connection_errors = 0
         
         self._default_config = {
             "channel_id": 1374479725392564296,
@@ -134,17 +137,19 @@ class HolidayBot(commands.Bot):
                     with open(self._config_path, 'r', encoding='utf-8') as f:
                         self._config = json.load(f)
                     self._config_mtime = mtime
-                    self._holiday_keys_cache = None  # Invalidate cache
+                    self._holiday_keys_cache = None
+                    self._channel_cache = None  # FIXED: Clear channel cache on config change
+                    logger.info("Config reloaded")
             elif self._config is None:
-                # Create default config only if it doesn't exist
                 try:
                     with open(self._config_path, 'w', encoding='utf-8') as f:
                         json.dump(self._default_config, f, indent=2)
                     self._config = self._default_config
-                except OSError:
-                    pass  # Ignore write errors, use default in memory
-        except (OSError, json.JSONDecodeError):
-            pass  # Use cached/default config on any error
+                    logger.info("Created default config")
+                except OSError as e:
+                    logger.warning(f"Could not create config file: {e}")
+        except (OSError, json.JSONDecodeError) as e:
+            logger.warning(f"Config load error: {e}")
         
         return self._config or self._default_config
     
@@ -161,6 +166,8 @@ class HolidayBot(commands.Bot):
             channel_id = self.config.get("channel_id")
             if channel_id:
                 self._channel_cache = self.get_channel(channel_id)
+                if self._channel_cache is None:
+                    logger.error(f"Could not find channel {channel_id}")
         
         return self._channel_cache if isinstance(self._channel_cache, discord.TextChannel) else None
     
@@ -180,27 +187,54 @@ class HolidayBot(commands.Bot):
     async def setup_hook(self) -> None:
         """Minimal setup with error handling"""
         try:
-            # Start with longer intervals to reduce CPU usage
             self.check_holiday_messages.change_interval(minutes=15)
             self.check_holiday_messages.start()
             
             self.cleanup_task.change_interval(hours=6)
             self.cleanup_task.start()
+            
+            logger.info("Bot setup complete")
         except Exception as e:
             logger.error(f"Setup failed: {e}")
+            raise  # Re-raise to prevent silent failures
     
     async def on_ready(self) -> None:
-        """Minimal ready handler"""
-        # Pre-cache channel to avoid repeated lookups
-        await self.get_target_channel()
+        """Ready handler with validation"""
+        logger.info(f"Bot online as {self.user}")
+        
+        # Pre-cache and validate channel
+        channel = await self.get_target_channel()
+        if channel:
+            logger.info(f"Target channel: {channel.name} ({channel.id})")
+        else:
+            logger.error("Could not find target channel!")
         
         # Clear daily cache on startup
         self._sent_today_cache.clear()
+        self._connection_errors = 0
     
-    @tasks.loop(minutes=15)  # Reduced frequency for better resource usage
+    async def on_disconnect(self) -> None:
+        """Log disconnections"""
+        self._connection_errors += 1
+        logger.warning(f"Disconnected from Discord (count: {self._connection_errors})")
+    
+    async def on_resumed(self) -> None:
+        """Log reconnections"""
+        logger.info("Reconnected to Discord")
+        self._connection_errors = 0
+    
+    @tasks.loop(minutes=15)
     async def check_holiday_messages(self):
         """Optimized holiday message checking"""
         await self.wait_until_ready()
+        
+        # FIXED: Clear sent cache if date has changed
+        now = datetime.now(timezone.utc)
+        current_date = f"{now.year}-{now.month}-{now.day}"
+        if self._last_check_date != current_date:
+            self._sent_today_cache.clear()
+            self._last_check_date = current_date
+            logger.info(f"New day: {current_date}")
         
         date_key = self.get_date_key()
         
@@ -216,6 +250,8 @@ class HolidayBot(commands.Bot):
         ):
             return
         
+        logger.info(f"Sending holiday message for {date_key}")
+        
         # Send message
         content = self.config["holiday_messages"][date_key]
         message = await self.send_holiday_message(content)
@@ -227,22 +263,22 @@ class HolidayBot(commands.Bot):
                 "timestamp": datetime.now(timezone.utc).timestamp()
             })
             self._sent_today_cache.add(date_key)
+            logger.info(f"Holiday message sent successfully")
+        else:
+            logger.error(f"Failed to send holiday message for {date_key}")
     
     @tasks.loop(hours=6)
     async def cleanup_task(self):
         """Consolidated cleanup task"""
         await self.wait_until_ready()
         
-        # Clear daily sent cache at midnight
-        now = datetime.now(timezone.utc)
-        if now.hour < 6:  # Run cleanup in early morning hours
-            self._sent_today_cache.clear()
-        
         # Clean old message cache entries
         self._message_cache.cleanup_old(max_age_hours=48)
         
         # Delete old messages
         await self._delete_old_messages()
+        
+        logger.info("Cleanup task completed")
     
     async def _delete_old_messages(self) -> None:
         """Efficient message deletion"""
@@ -265,9 +301,12 @@ class HolidayBot(commands.Bot):
             try:
                 message = await channel.fetch_message(message_id)
                 await message.delete()
-                await asyncio.sleep(1)  # Rate limit protection
-            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
-                pass  # Message already deleted or no permission
+                logger.info(f"Deleted old message: {date_key}")
+                await asyncio.sleep(1)
+            except discord.NotFound:
+                logger.info(f"Message already deleted: {date_key}")
+            except (discord.Forbidden, discord.HTTPException) as e:
+                logger.warning(f"Could not delete message {date_key}: {e}")
             finally:
                 self._message_cache.remove(date_key)
     
@@ -275,15 +314,21 @@ class HolidayBot(commands.Bot):
         """Optimized message sending"""
         channel = await self.get_target_channel()
         if not channel:
+            logger.error("Cannot send message: channel not found")
             return None
         
         try:
             return await channel.send(content)
-        except (discord.Forbidden, discord.HTTPException):
+        except discord.Forbidden as e:
+            logger.error(f"No permission to send message: {e}")
+            return None
+        except discord.HTTPException as e:
+            logger.error(f"Failed to send message: {e}")
             return None
     
     async def close(self) -> None:
         """Clean shutdown"""
+        logger.info("Shutting down bot")
         self._message_cache._data.clear()
         self._sent_today_cache.clear()
         await super().close()
@@ -292,22 +337,24 @@ def main():
     """Ultra-minimal main function"""
     token = os.getenv("DISCORD_BOT_TOKEN")
     if not token:
-        print("ERROR: DISCORD_BOT_TOKEN missing")
+        print("ERROR: DISCORD_BOT_TOKEN missing in .env file")
         return
     
     bot = HolidayBot()
     
     try:
+        print("Starting Holiday Bot...")
         bot.run(
             token,
             log_handler=None,
-            log_level=logging.CRITICAL  # Suppress discord.py logs
+            log_level=logging.CRITICAL
         )
     except discord.LoginFailure:
-        print("ERROR: Invalid token")
+        print("ERROR: Invalid Discord token")
     except KeyboardInterrupt:
-        pass  # Silent exit on Ctrl+C
+        print("\nBot stopped by user")
     except Exception as e:
+        logger.error(f"Fatal error: {e}")
         print(f"ERROR: {e}")
 
 if __name__ == "__main__":
